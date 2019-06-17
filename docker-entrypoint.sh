@@ -353,4 +353,19 @@ rm -f "$jsonConfigFile" "$tempConfigFile"
 
 ### END MONGO ###
 
+### SIMFLOFY ###
+
+#Get tsearch war if download url exists
+if [ "$SIMFLOFY_TSEARCH_DOWNLOAD_URL" ]; then
+	curl -L "${SIMFLOFY_TSEARCH_DOWNLOAD_URL}" --output /usr/local/tomcat/webapps/tsearch.war
+	sudo chmod 777 /usr/local/tomcat/webapps/tsearch.war
+fi
+#Get simflofy-admin war if download url exists
+if [ "$SIMFLOFY_ADMIN_DOWNLOAD_URL" ]; then
+	curl -L "${SIMFLOFY_ADMIN_DOWNLOAD_URL}" --output /usr/local/tomcat/webapps/simflofy-admin.war
+	sudo chmod 777 /usr/local/tomcat/webapps/simflofy-admin.war
+fi
+
+### END SIMFLOFY ###
+
 exec "$@"

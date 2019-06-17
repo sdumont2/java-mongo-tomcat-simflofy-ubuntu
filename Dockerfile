@@ -2,7 +2,7 @@ FROM ubuntu:latest
 
 ### Install Java ###
 # To solve add-apt-repository : command not found
-RUN apt-get update && apt-get -y install software-properties-common curl ca-certificates tar gzip gnupg dirmngr bzip2 unzip xz-utils p11-kit fontconfig libfreetype6 wget libnss-wrapper bash
+RUN apt-get update && apt-get -y install software-properties-common curl ca-certificates tar gzip gnupg dirmngr bzip2 unzip xz-utils p11-kit fontconfig libfreetype6 wget libnss-wrapper bash sudo
 
 ENV JAVA_HOME /usr/local/openjdk-8
 ENV PATH $JAVA_HOME/bin:$PATH
@@ -16,6 +16,17 @@ ENV JAVA_BASE_URL https://github.com/AdoptOpenJDK/openjdk8-upstream-binaries/rel
 ENV JAVA_URL_VERSION 8u212b04
 
 RUN set -eux && dpkgArch="$(dpkg --print-architecture)" && case "$dpkgArch" in amd64) upstreamArch='x64' ;; arm64) upstreamArch='aarch64' ;; *) echo >&2 "error: unsupported architecture: $dpkgArch" ;; esac && wget -O openjdk.tgz.asc "${JAVA_BASE_URL}${upstreamArch}_linux_${JAVA_URL_VERSION}.tar.gz.sign" && wget -O openjdk.tgz "${JAVA_BASE_URL}${upstreamArch}_linux_${JAVA_URL_VERSION}.tar.gz" --progress=dot:giga;
+
+# We use this since there's a known issue where a build will fail due to key not returning fast enough to be found an any one of the keyservers so we loop through a set of them until one is returned
+#for keyserver in $(shuf -e \
+#			ha.pool.sks-keyservers.net \
+#			hkp://p80.pool.sks-keyservers.net:80 \
+#			keyserver.ubuntu.com \
+#			hkp://keyserver.ubuntu.com:80 \
+#			pgp.mit.edu) ; do \
+#		gpg --keyserver $keyserver --recv-keys "$key" && break || true ; \
+#		done; \
+# While this take a lot of extra time for the Dockerfile to build, it prevents build failures
 
 RUN export GNUPGHOME="$(mktemp -d)"; \
 	for keyserver in $(shuf -e \
@@ -70,7 +81,7 @@ RUN export GNUPGHOME="$(mktemp -d)"; \
 
 ### Install MongoDB ###
 # add our user and group first to make sure their IDs get assigned consistently, regardless of whatever dependencies get added
-RUN groupadd -r mongodb && useradd -r -g mongodb mongodb
+RUN groupadd -r mongodb --gid=999 && useradd -r -g mongodb --uid=999 mongodb && usermod -aG sudo mongodb && echo '%sudo	ALL=NOPASSWD: ALL' >> /etc/sudoers 
 
 RUN set -eux; \
 	apt-get update; \
@@ -104,7 +115,14 @@ RUN set -ex; \
 	wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch"; \
 	wget -O /usr/local/bin/gosu.asc "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch.asc"; \
 	export GNUPGHOME="$(mktemp -d)"; \
-	gpg --batch --keyserver ha.pool.sks-keyservers.net --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4; \
+	for keyserver in $(shuf -e \
+			ha.pool.sks-keyservers.net \
+			hkp://p80.pool.sks-keyservers.net:80 \
+			keyserver.ubuntu.com \
+			hkp://keyserver.ubuntu.com:80 \
+			pgp.mit.edu) ; do \
+		gpg --keyserver $keyserver --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4 && break || true ; \
+	done; \
 	gpg --batch --verify /usr/local/bin/gosu.asc /usr/local/bin/gosu; \
 	command -v gpgconf && gpgconf --kill all || :; \
 	rm -r "$GNUPGHOME" /usr/local/bin/gosu.asc; \
@@ -337,11 +355,10 @@ RUN set -e \
 
 ### Install Simflofy ###
 
-RUN set -ex && \
-	curl -H "Authorization: Basic " -L "DOWNLOADURL" --output /usr/local/tomcat/webapps/tsearch.war && \
-	curl -H "Authorization: Basic " -L "DOWNLOADURL" --output /usr/local/tomcat/webapps/simflofy-admin.war
-
-RUN chmod 777 /usr/local/tomcat/webapps/simflofy-admin.war && chmod 777 /usr/local/tomcat/webapps/tsearch.war
+##This'll get done in the entrypoint so we can pass in authentication and url by environment variables
+#add in sudo just to make sure it's available to the user
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends unzip ca-certificates fontconfig wget sudo curl
 
 ### Finish up ###
 
@@ -351,7 +368,7 @@ VOLUME /data/db /data/configdb
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod 777 /usr/local/bin/docker-entrypoint.sh
-RUN ln -s /usr/local/bin/docker-entrypoint.sh /
+RUN ln -s usr/local/bin/docker-entrypoint.sh /
 ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Expose ports.
