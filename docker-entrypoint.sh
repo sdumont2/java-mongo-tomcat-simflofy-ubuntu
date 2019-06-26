@@ -1,8 +1,7 @@
 #!/bin/bash
-set -Eeuo pipefail
-
-
+set -Eeo pipefail
 ### MONGO ###
+
 if [ "${1:0:1}" = '-' ]; then
 	set -- mongod "$@"
 fi
@@ -198,7 +197,7 @@ if [ "$originalArgOne" = 'mongod' ]; then
 	shouldPerformInitdb=
 	if [ "$MONGO_INITDB_ROOT_USERNAME" ] && [ "$MONGO_INITDB_ROOT_PASSWORD" ]; then
 		# if we have a username/password, let's set "--auth"
-		_mongod_hack_ensure_arg '--auth' "$@"
+		_mongod_hack_ensure_no_arg '--auth' "$@"
 		set -- "${mongodHackedArgs[@]}"
 		shouldPerformInitdb='true'
 	elif [ "$MONGO_INITDB_ROOT_USERNAME" ] || [ "$MONGO_INITDB_ROOT_PASSWORD" ]; then
@@ -310,6 +309,15 @@ if [ "$originalArgOne" = 'mongod' ]; then
 					roles: [ { role: 'root', db: $(_js_escape "$rootAuthDatabase") } ]
 				})
 			EOJS
+
+			"${mongo[@]}" "$rootAuthDatabase" <<-EOJS
+				use "${MONGO_INITDB_DATABASE:-test}"
+				db.createUser({
+					user: $(_js_escape "$MONGO_INITDB_ROOT_USERNAME"),
+					pwd: $(_js_escape "$MONGO_INITDB_ROOT_PASSWORD"),
+					roles: [ { role: 'root', db: $(_js_escape "${MONGO_INITDB_DATABASE:-test}") } ]
+				})
+			EOJS
 		fi
 
 		export MONGO_INITDB_DATABASE="${MONGO_INITDB_DATABASE:-test}"
@@ -323,6 +331,8 @@ if [ "$originalArgOne" = 'mongod' ]; then
 			esac
 			echo
 		done
+
+		"${mongo[@]}" --eval "$rootAuthDatabase"
 
 		"${mongodHackedArgs[@]}" --shutdown
 		rm -f "$pidfile"
@@ -342,7 +352,8 @@ if [ "$originalArgOne" = 'mongod' ]; then
 		fi
 		if [ -z "$haveBindIp" ]; then
 			# so if no "--bind_ip" is specified, let's add "--bind_ip_all"
-			set -- "$@" --bind_ip_all
+			_mongod_hack_ensure_no_arg --auth "$@"
+			set -- "$@" --dbpath "$dbPath" --logpath "$dbPath"/mongo.log --bind_ip_all
 		fi
 	fi
 
@@ -351,21 +362,36 @@ fi
 
 rm -f "$jsonConfigFile" "$tempConfigFile"
 
+
 ### END MONGO ###
 
 ### SIMFLOFY ###
 
 #Get tsearch war if download url exists
 if [ "$SIMFLOFY_TSEARCH_DOWNLOAD_URL" ]; then
-	curl -L "${SIMFLOFY_TSEARCH_DOWNLOAD_URL}" --output /usr/local/tomcat/webapps/tsearch.war
+	sudo chmod -R 777 /usr/local/tomcat/webapps
+	echo 
+	echo "Starting TSearch Download"
+	echo 
+	sudo wget -O /usr/local/tomcat/webapps/tsearch.war "${SIMFLOFY_TSEARCH_DOWNLOAD_URL}"
+	echo 
+	echo "TSearch Download Complete"
+	echo 
 	sudo chmod 777 /usr/local/tomcat/webapps/tsearch.war
 fi
 #Get simflofy-admin war if download url exists
 if [ "$SIMFLOFY_ADMIN_DOWNLOAD_URL" ]; then
-	curl -L "${SIMFLOFY_ADMIN_DOWNLOAD_URL}" --output /usr/local/tomcat/webapps/simflofy-admin.war
+	sudo chmod -R 777 /usr/local/tomcat/webapps
+	echo 
+	echo "Starting Simflofy Admin Download"
+	echo 
+	sudo wget -O /usr/local/tomcat/webapps/simflofy-admin.war "${SIMFLOFY_ADMIN_DOWNLOAD_URL}"
+	echo 
+	echo "Simflofy Admin Download Complete"
+	echo 
 	sudo chmod 777 /usr/local/tomcat/webapps/simflofy-admin.war
 fi
 
 ### END SIMFLOFY ###
-
+sudo env "PATH=$PATH" /usr/local/tomcat/bin/catalina.sh start
 exec "$@"

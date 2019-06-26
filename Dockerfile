@@ -378,4 +378,4 @@ EXPOSE 27017
 EXPOSE 28017
 EXPOSE 8080
 EXPOSE 8443
-CMD ["catalina.sh", "run"]
+CMD ["mongod"]
