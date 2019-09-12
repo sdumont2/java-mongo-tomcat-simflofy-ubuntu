@@ -311,11 +311,10 @@ if [ "$originalArgOne" = 'mongod' ]; then
 			EOJS
 
 			"${mongo[@]}" "$rootAuthDatabase" <<-EOJS
-				use "${MONGO_INITDB_DATABASE:-test}"
-				db.createUser({
+				use $(_js_escape "$MONGO_INITDB_DATABASE")
+				db.grantRolesToUser({
 					user: $(_js_escape "$MONGO_INITDB_ROOT_USERNAME"),
-					pwd: $(_js_escape "$MONGO_INITDB_ROOT_PASSWORD"),
-					roles: [ { role: 'dbOwner', db: $(_js_escape "${MONGO_INITDB_DATABASE:-test}") } ]
+					roles: [ { role: 'dbOwner', db: $(_js_escape "$MONGO_INITDB_DATABASE") } ]
 				})
 			EOJS
 		fi
