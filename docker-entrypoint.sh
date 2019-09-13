@@ -331,8 +331,6 @@ if [ "$originalArgOne" = 'mongod' ]; then
 			echo
 		done
 
-		"${mongo[@]}" --eval "$rootAuthDatabase"
-
 		"${mongodHackedArgs[@]}" --shutdown
 		rm -f "$pidfile"
 
