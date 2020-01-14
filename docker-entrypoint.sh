@@ -12,7 +12,7 @@ originalArgOne="$1"
 # all mongo* commands should be dropped to the correct user
 if [[ "$originalArgOne" == mongo* ]] && [ "$(id -u)" = '0' ]; then
 	if [ "$originalArgOne" = 'mongod' ]; then
-		find /data/configdb /data/db \! -user mongodb -exec chown mongodb '{}' +
+		find /data/configdb /var/lib/mongodb \! -user mongodb -exec chown mongodb '{}' +
 	fi
 
 	# make sure we can write to stdout and stderr as "mongodb"
@@ -185,7 +185,7 @@ _dbPath() {
 		fi
 	fi
 
-	: "${dbPath:=/data/db}"
+	: "${dbPath:=/var/lib/mongodb}"
 
 	echo "$dbPath"
 }
