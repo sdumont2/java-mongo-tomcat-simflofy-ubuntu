@@ -326,9 +326,9 @@ RUN apt-get install -y --no-install-recommends unzip ca-certificates fontconfig 
 
 ### Finish up ###
 
-RUN mkdir -p /var/lib/mongodb /data/configdb \
-	&& chown -R mongodb:mongodb /var/lib/mongodb /data/configdb
-VOLUME /var/lib/mongodb /data/configdb
+RUN mkdir -p /var/lib/mongodb /data/configdb /data/db \
+	&& chown -R mongodb:mongodb /var/lib/mongodb /data/configdb /data/db
+VOLUME /var/lib/mongodb /data/configdb /data/db
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod 777 /usr/local/bin/docker-entrypoint.sh
